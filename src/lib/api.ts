@@ -1,4 +1,27 @@
-const API_BASE_URL = "http://localhost:5000/api";
+// Resolve API base URL for Vite/Netlify deployments
+// Use VITE_API_BASE_URL if provided; fallback to the deployed backend URL; finally fallback to localhost for dev
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL
+  || "http://13.201.4.174:5000"
+  || "http://localhost:5000";
+
+async function httpGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+  return res.json();
+}
+
+async function httpPost<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
+  return res.json();
+}
 
 export const api = {
   async login(email: string, password: string) {
@@ -20,8 +43,12 @@ export const api = {
     ];
   },
 
-  async getCourses() {
-    // Mock data - replace with actual API call
+  async getCourses(tenantId?: string) {
+    // If tenantId provided, fetch from backend; otherwise return mock data
+    if (tenantId) {
+      const data = await httpGet<{ tenantId: string; courses: any[] }>(`/api/tenant/${tenantId}/courses`);
+      return data.courses;
+    }
     return [
       {
         id: "1",
@@ -63,7 +90,7 @@ export const api = {
   },
 
   async getLiveClasses() {
-    // Mock data - replace with actual API call
+    // Replace with actual API call when backend endpoint is ready
     return [
       {
         id: "1",
@@ -93,6 +120,18 @@ export const api = {
         attendees: 298,
       },
     ];
+  },
+
+  async startLiveSession(input: { sessionId: string; title: string; instructor: string; tenantId: string; }) {
+    return httpPost<{ message: string; session: any }>(`/api/live/start`, input);
+  },
+
+  async stopLiveSession(sessionId: string) {
+    return httpPost<{ message: string; session: any }>(`/api/live/stop`, { sessionId });
+  },
+
+  async getAllLiveSessions() {
+    return httpGet<{ activeSessions: any[]; allSessions: any[] }>(`/api/live/sessions`);
   },
 
   async getAnnouncements() {
