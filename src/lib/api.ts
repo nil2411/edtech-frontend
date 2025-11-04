@@ -1,9 +1,25 @@
 // ✅ API Base URL setup (Vite + Netlify compatible)
 const getApiBaseUrl = () => {
   const envUrl = (import.meta as any).env?.VITE_API_BASE_URL?.trim();
-  if (envUrl) return envUrl;
   
-  // Fallback to hardcoded backend URL
+  // If VITE_API_BASE_URL is set to "/api-proxy" or similar, use it (Netlify proxy)
+  if (envUrl && envUrl.startsWith('/')) {
+    return envUrl; // Relative path - will use Netlify proxy
+  }
+  
+  // If full URL provided, use it
+  if (envUrl && (envUrl.startsWith('http://') || envUrl.startsWith('https://'))) {
+    return envUrl;
+  }
+  
+  // In production (Netlify), use proxy to avoid mixed content issues
+  // In development, use direct backend URL
+  if (import.meta.env.PROD) {
+    // Production: Use Netlify proxy (no protocol, relative path)
+    return "/api-proxy";
+  }
+  
+  // Development: Use direct backend URL
   return "http://13.201.4.174:5000";
 };
 
@@ -18,6 +34,16 @@ async function httpGet<T>(path: string): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   console.log(`📡 GET ${url}`);
   
+  // Check for mixed content (HTTP from HTTPS page) - but only if not using proxy
+  // Proxy paths (starting with /) are safe from mixed content
+  if (window.location.protocol === 'https:' && url.startsWith('http:') && !API_BASE_URL.startsWith('/')) {
+    const errorMsg = `🚫 MIXED CONTENT BLOCKED: Cannot load ${url} from HTTPS page. Backend must use HTTPS or use a proxy.`;
+    console.error(errorMsg);
+    console.error(`💡 Solution: Use Netlify proxy (set VITE_API_BASE_URL="/api-proxy" in netlify.toml)`);
+    alert(`Mixed Content Error!\n\nYour frontend is on HTTPS (Netlify) but backend is HTTP.\n\nBackend URL: ${url}\n\nSolutions:\n1. Use HTTPS for backend (recommended)\n2. Use Netlify proxy/rewrites (configured in netlify.toml)\n3. Deploy backend with HTTPS`);
+    throw new Error(errorMsg);
+  }
+  
   try {
     const res = await fetch(url, {
       method: "GET",
@@ -25,6 +51,8 @@ async function httpGet<T>(path: string): Promise<T> {
         "Content-Type": "application/json",
         "Accept": "application/json",
       },
+      // Add mode to help with CORS debugging
+      mode: 'cors',
     });
     
     console.log(`📥 Response status: ${res.status} for ${path}`);
@@ -38,7 +66,20 @@ async function httpGet<T>(path: string): Promise<T> {
     console.log(`✅ GET ${path} success:`, data);
     return data;
   } catch (err: any) {
-    console.error(`❌ GET ${path} failed:`, err.message || err);
+    // Enhanced error logging
+    const errorMessage = err.message || String(err);
+    console.error(`❌ GET ${path} failed:`, errorMessage);
+    console.error(`❌ Full error:`, err);
+    
+    // Check for specific error types
+    if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+      console.error(`🚫 Network Error Details:`);
+      console.error(`   - URL: ${url}`);
+      console.error(`   - Frontend Protocol: ${window.location.protocol}`);
+      console.error(`   - Backend Protocol: ${url.startsWith('https') ? 'https' : 'http'}`);
+      console.error(`   - Mixed Content: ${window.location.protocol === 'https:' && url.startsWith('http:') ? 'YES (BLOCKED!)' : 'No'}`);
+    }
+    
     throw err;
   }
 }
@@ -48,6 +89,16 @@ async function httpPost<T>(path: string, body: unknown): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   console.log(`📡 POST ${url}`, body);
   
+  // Check for mixed content (HTTP from HTTPS page) - but only if not using proxy
+  // Proxy paths (starting with /) are safe from mixed content
+  if (window.location.protocol === 'https:' && url.startsWith('http:') && !API_BASE_URL.startsWith('/')) {
+    const errorMsg = `🚫 MIXED CONTENT BLOCKED: Cannot load ${url} from HTTPS page. Backend must use HTTPS or use a proxy.`;
+    console.error(errorMsg);
+    console.error(`💡 Solution: Use Netlify proxy (set VITE_API_BASE_URL="/api-proxy" in netlify.toml)`);
+    alert(`Mixed Content Error!\n\nYour frontend is on HTTPS (Netlify) but backend is HTTP.\n\nBackend URL: ${url}\n\nSolutions:\n1. Use HTTPS for backend (recommended)\n2. Use Netlify proxy/rewrites (configured in netlify.toml)\n3. Deploy backend with HTTPS`);
+    throw new Error(errorMsg);
+  }
+  
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -56,6 +107,7 @@ async function httpPost<T>(path: string, body: unknown): Promise<T> {
         "Accept": "application/json",
       },
       body: JSON.stringify(body),
+      mode: 'cors',
     });
     
     console.log(`📥 Response status: ${res.status} for ${path}`);
@@ -69,7 +121,9 @@ async function httpPost<T>(path: string, body: unknown): Promise<T> {
     console.log(`✅ POST ${path} success:`, data);
     return data;
   } catch (err: any) {
-    console.error(`❌ POST ${path} failed:`, err.message || err);
+    const errorMessage = err.message || String(err);
+    console.error(`❌ POST ${path} failed:`, errorMessage);
+    console.error(`❌ Full error:`, err);
     throw err;
   }
 }
@@ -104,71 +158,43 @@ export const api = {
 
   // 🎓 Fetch courses per tenant (real backend integration)
   async getCourses(tenantId?: string) {
+    // Always try to fetch from backend first - no silent fallbacks
+    const targetTenant = tenantId || 'stanford';
+    
     try {
-      // If tenantId provided, fetch from backend
-      if (tenantId) {
-        const data = await httpGet<{ tenantId: string; courses: any[] }>(
-          `/api/tenant/${tenantId}/courses`
-        );
-        // Transform backend data to match frontend format
-        return data.courses.map(course => ({
-          ...course,
-          progress: Math.floor(Math.random() * 100), // Add progress for display
-          thumbnail: "/placeholder.svg",
-          duration: "12 weeks", // Default duration
-        }));
+      console.log(`🎓 Fetching courses for tenant: ${targetTenant}`);
+      const data = await httpGet<{ tenantId: string; courses: any[] }>(
+        `/api/tenant/${targetTenant}/courses`
+      );
+      
+      console.log(`✅ Successfully fetched ${data.courses.length} courses from backend`);
+      
+      // Transform backend data to match frontend format
+      return data.courses.map(course => ({
+        ...course,
+        progress: Math.floor(Math.random() * 100), // Add progress for display
+        thumbnail: "/placeholder.svg",
+        duration: "12 weeks", // Default duration
+      }));
+    } catch (err: any) {
+      // Log the error but don't silently fall back - let the error propagate
+      console.error(`❌ Failed to fetch courses from backend for tenant ${targetTenant}:`, err);
+      
+      // Only use mock data if it's a mixed content or network error
+      const isMixedContent = err.message?.includes('MIXED CONTENT') || 
+                             err.message?.includes('Failed to fetch') ||
+                             err.message?.includes('NetworkError');
+      
+      if (isMixedContent) {
+        console.error(`🚫 Mixed content error detected. Backend must use HTTPS.`);
+        // Return empty array so UI shows "no courses" instead of mock data
+        // This makes the problem visible
+        return [];
       }
       
-      // If no tenantId, try to get courses from a default tenant (stanford)
-      try {
-        const data = await httpGet<{ tenantId: string; courses: any[] }>(
-          `/api/tenant/stanford/courses`
-        );
-        // Transform backend data to match frontend format
-        return data.courses.map(course => ({
-          ...course,
-          progress: Math.floor(Math.random() * 100),
-          thumbnail: "/placeholder.svg",
-          duration: "12 weeks",
-        }));
-      } catch (err) {
-        console.warn("Failed to fetch courses from backend, using mock data");
-        // Fallback mock data
-        return [
-          {
-            id: "1",
-            title: "Introduction to Computer Science",
-            instructor: "Prof. David Williams",
-            progress: 65,
-            thumbnail: "/placeholder.svg",
-            students: 1250,
-            duration: "12 weeks",
-          },
-          {
-            id: "2",
-            title: "Advanced Calculus & Linear Algebra",
-            instructor: "Dr. Jennifer Park",
-            progress: 40,
-            thumbnail: "/placeholder.svg",
-            students: 890,
-            duration: "10 weeks",
-          },
-        ];
-      }
-    } catch (err: any) {
-      console.error("Error fetching courses:", err);
-      // Fallback on error
-      return [
-        {
-          id: "1",
-          title: "Mock: Data Structures & Algorithms",
-          instructor: "Prof. Robert Thompson",
-          progress: 80,
-          thumbnail: "/placeholder.svg",
-          students: 2100,
-          duration: "14 weeks",
-        },
-      ];
+      // For other errors, still return empty array to make it visible
+      console.error(`⚠️ Returning empty courses array due to error`);
+      return [];
     }
   },
 
@@ -219,10 +245,13 @@ export const api = {
   // 🧑‍🏫 Live classes - fetch from backend
   async getLiveClasses() {
     try {
+      console.log(`🎥 Fetching live sessions from backend`);
       // Fetch live sessions from backend directly
       const data = await httpGet<{ activeSessions: any[]; allSessions: any[] }>(
         `/api/live/sessions`
       );
+      
+      console.log(`✅ Successfully fetched ${data.allSessions.length} live sessions from backend`);
       
       // Transform backend sessions to frontend format
       const transformedSessions = data.allSessions.map((session: any, index: number) => {
@@ -246,55 +275,22 @@ export const api = {
         };
       });
       
-      // If we have sessions, return them
-      if (transformedSessions.length > 0) {
-        return transformedSessions;
+      return transformedSessions;
+    } catch (err: any) {
+      console.error("❌ Error fetching live classes:", err);
+      
+      // Check for mixed content error
+      const isMixedContent = err.message?.includes('MIXED CONTENT') || 
+                             err.message?.includes('Failed to fetch') ||
+                             err.message?.includes('NetworkError');
+      
+      if (isMixedContent) {
+        console.error(`🚫 Mixed content error detected. Backend must use HTTPS.`);
+        return []; // Return empty array
       }
       
-      // If no sessions, return mock data
-      return [
-        {
-          id: "1",
-          title: "CS101 - Introduction to Programming",
-          instructor: "Prof. David Williams",
-          time: "2:00 PM - 3:30 PM",
-          date: "Today",
-          status: "upcoming",
-          attendees: 234,
-        },
-        {
-          id: "2",
-          title: "MATH301 - Multivariable Calculus",
-          instructor: "Dr. Jennifer Park",
-          time: "4:00 PM - 5:30 PM",
-          date: "Today",
-          status: "upcoming",
-          attendees: 156,
-        },
-      ];
-    } catch (err: any) {
-      console.error("Error fetching live classes:", err);
-      // Fallback to mock data on error
-      return [
-        {
-          id: "1",
-          title: "CS101 - Introduction to Programming",
-          instructor: "Prof. David Williams",
-          time: "2:00 PM - 3:30 PM",
-          date: "Today",
-          status: "upcoming",
-          attendees: 234,
-        },
-        {
-          id: "2",
-          title: "MATH301 - Multivariable Calculus",
-          instructor: "Dr. Jennifer Park",
-          time: "4:00 PM - 5:30 PM",
-          date: "Today",
-          status: "upcoming",
-          attendees: 156,
-        },
-      ];
+      // Return empty array on any error
+      return [];
     }
   },
 

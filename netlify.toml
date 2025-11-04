@@ -3,10 +3,17 @@
   publish = "dist"
 
 [context.production.environment]
-  VITE_API_BASE_URL = "http://13.201.4.174:5000"
+  VITE_API_BASE_URL = "/api-proxy"
 
 [dev]
   command = "npm run dev"
+
+# ✅ Proxy API requests to backend (fixes mixed content HTTP -> HTTPS issue)
+[[redirects]]
+  from = "/api-proxy/*"
+  to = "http://13.201.4.174:5000/:splat"
+  status = 200
+  force = true
 
 # ✅ Redirect all SPA routes, but NOT JS/CSS assets
 [[redirects]]
