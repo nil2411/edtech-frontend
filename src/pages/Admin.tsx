@@ -110,7 +110,7 @@ const Admin = () => {
                 </form>
               ) : (
                 <div className="space-y-3">
-                  {["Introduction to Computer Science", "Advanced Mathematics", "Web Development Fundamentals"].map(
+                  {["Introduction to Computer Science", "Advanced Calculus & Linear Algebra", "Full-Stack Web Development"].map(
                     (course, idx) => (
                       <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                         <span className="font-medium">{course}</span>
@@ -138,15 +138,15 @@ const Admin = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="tenant">Active Tenant</Label>
-                <Select defaultValue="university-1">
+                <Select defaultValue="stanford">
                   <SelectTrigger id="tenant" className="bg-popover">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-popover z-50">
-                    <SelectItem value="university-1">University One</SelectItem>
-                    <SelectItem value="university-2">University Two</SelectItem>
-                    <SelectItem value="college-1">College Alpha</SelectItem>
-                    <SelectItem value="school-1">School Beta</SelectItem>
+                    <SelectItem value="stanford">Stanford University</SelectItem>
+                    <SelectItem value="mit">Massachusetts Institute of Technology</SelectItem>
+                    <SelectItem value="oxford">University of Oxford</SelectItem>
+                    <SelectItem value="berkeley">UC Berkeley</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -13,10 +13,10 @@ export const api = {
   async getTenants() {
     // Mock data - replace with actual API call
     return [
-      { id: "university-1", name: "University One" },
-      { id: "university-2", name: "University Two" },
-      { id: "college-1", name: "College Alpha" },
-      { id: "school-1", name: "School Beta" },
+      { id: "stanford", name: "Stanford University" },
+      { id: "mit", name: "Massachusetts Institute of Technology" },
+      { id: "oxford", name: "University of Oxford" },
+      { id: "berkeley", name: "UC Berkeley" },
     ];
   },
 
@@ -26,7 +26,7 @@ export const api = {
       {
         id: "1",
         title: "Introduction to Computer Science",
-        instructor: "Dr. Sarah Johnson",
+        instructor: "Prof. David Williams",
         progress: 65,
         thumbnail: "/placeholder.svg",
         students: 1250,
@@ -34,8 +34,8 @@ export const api = {
       },
       {
         id: "2",
-        title: "Advanced Mathematics",
-        instructor: "Prof. Michael Chen",
+        title: "Advanced Calculus & Linear Algebra",
+        instructor: "Dr. Jennifer Park",
         progress: 40,
         thumbnail: "/placeholder.svg",
         students: 890,
@@ -44,7 +44,7 @@ export const api = {
       {
         id: "3",
         title: "Data Structures & Algorithms",
-        instructor: "Dr. Emily Rodriguez",
+        instructor: "Prof. Robert Thompson",
         progress: 80,
         thumbnail: "/placeholder.svg",
         students: 2100,
@@ -52,8 +52,8 @@ export const api = {
       },
       {
         id: "4",
-        title: "Web Development Fundamentals",
-        instructor: "Alex Martinez",
+        title: "Full-Stack Web Development",
+        instructor: "Dr. Maria Garcia",
         progress: 30,
         thumbnail: "/placeholder.svg",
         students: 3200,
@@ -68,7 +68,7 @@ export const api = {
       {
         id: "1",
         title: "CS101 - Introduction to Programming",
-        instructor: "Dr. Sarah Johnson",
+        instructor: "Prof. David Williams",
         time: "2:00 PM - 3:30 PM",
         date: "Today",
         status: "live",
@@ -76,8 +76,8 @@ export const api = {
       },
       {
         id: "2",
-        title: "MATH301 - Calculus III",
-        instructor: "Prof. Michael Chen",
+        title: "MATH301 - Multivariable Calculus",
+        instructor: "Dr. Jennifer Park",
         time: "4:00 PM - 5:30 PM",
         date: "Today",
         status: "upcoming",
@@ -85,8 +85,8 @@ export const api = {
       },
       {
         id: "3",
-        title: "WEB202 - React Advanced Patterns",
-        instructor: "Alex Martinez",
+        title: "WEB202 - Modern React Development",
+        instructor: "Dr. Maria Garcia",
         time: "10:00 AM - 11:30 AM",
         date: "Tomorrow",
         status: "upcoming",
