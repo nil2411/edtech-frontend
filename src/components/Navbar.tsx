@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Link, useLocation } from "react-router-dom";
+import { useTenant } from "@/contexts/TenantContext";
 
 const navLinks = [
   { name: "Dashboard", path: "/dashboard" },
@@ -20,9 +21,17 @@ const navLinks = [
 
 export const Navbar = () => {
   const { theme, setTheme } = useTheme();
-  const [tenant, setTenant] = useState("university-1");
+  const { currentTenant, tenants, setCurrentTenant, isLoading } = useTenant();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+
+  const handleTenantChange = (tenantId: string) => {
+    setCurrentTenant(tenantId);
+    // Refresh current page data when tenant changes
+    if (location.pathname !== "/login") {
+      window.location.reload(); // Simple refresh - could be optimized with state management
+    }
+  };
 
   return (
     <nav className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -51,17 +60,20 @@ export const Navbar = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <Select value={tenant} onValueChange={setTenant}>
-              <SelectTrigger className="w-[180px] hidden sm:flex">
-                <SelectValue placeholder="Select tenant" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                <SelectItem value="university-1">University One</SelectItem>
-                <SelectItem value="university-2">University Two</SelectItem>
-                <SelectItem value="college-1">College Alpha</SelectItem>
-                <SelectItem value="school-1">School Beta</SelectItem>
-              </SelectContent>
-            </Select>
+            {!isLoading && currentTenant && (
+              <Select value={currentTenant.id} onValueChange={handleTenantChange}>
+                <SelectTrigger className="w-[180px] hidden sm:flex">
+                  <SelectValue placeholder="Select tenant" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <Button
               variant="ghost"
@@ -99,17 +111,20 @@ export const Navbar = () => {
                 </Button>
               </Link>
             ))}
-            <Select value={tenant} onValueChange={setTenant}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select tenant" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                <SelectItem value="university-1">University One</SelectItem>
-                <SelectItem value="university-2">University Two</SelectItem>
-                <SelectItem value="college-1">College Alpha</SelectItem>
-                <SelectItem value="school-1">School Beta</SelectItem>
-              </SelectContent>
-            </Select>
+            {!isLoading && currentTenant && (
+              <Select value={currentTenant.id} onValueChange={handleTenantChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select tenant" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover z-50">
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         )}
       </div>

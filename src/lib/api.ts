@@ -84,6 +84,83 @@ async function httpGet<T>(path: string): Promise<T> {
   }
 }
 
+// ✅ Generic PUT request helper
+async function httpPut<T>(path: string, body: unknown): Promise<T> {
+  const url = `${API_BASE_URL}${path}`;
+  console.log(`📡 PUT ${url}`, body);
+  
+  if (window.location.protocol === 'https:' && url.startsWith('http:') && !API_BASE_URL.startsWith('/')) {
+    const errorMsg = `🚫 MIXED CONTENT BLOCKED: Cannot load ${url} from HTTPS page.`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+  
+  try {
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify(body),
+      mode: 'cors',
+    });
+    
+    console.log(`📥 Response status: ${res.status} for ${path}`);
+    
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '');
+      throw new Error(`PUT ${path} failed: ${res.status} ${res.statusText}. ${errorText}`);
+    }
+    
+    const data = await res.json();
+    console.log(`✅ PUT ${path} success:`, data);
+    return data;
+  } catch (err: any) {
+    const errorMessage = err.message || String(err);
+    console.error(`❌ PUT ${path} failed:`, errorMessage);
+    throw err;
+  }
+}
+
+// ✅ Generic DELETE request helper
+async function httpDelete<T>(path: string): Promise<T> {
+  const url = `${API_BASE_URL}${path}`;
+  console.log(`📡 DELETE ${url}`);
+  
+  if (window.location.protocol === 'https:' && url.startsWith('http:') && !API_BASE_URL.startsWith('/')) {
+    const errorMsg = `🚫 MIXED CONTENT BLOCKED: Cannot load ${url} from HTTPS page.`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+  
+  try {
+    const res = await fetch(url, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      mode: 'cors',
+    });
+    
+    console.log(`📥 Response status: ${res.status} for ${path}`);
+    
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '');
+      throw new Error(`DELETE ${path} failed: ${res.status} ${res.statusText}. ${errorText}`);
+    }
+    
+    const data = await res.json();
+    console.log(`✅ DELETE ${path} success:`, data);
+    return data;
+  } catch (err: any) {
+    const errorMessage = err.message || String(err);
+    console.error(`❌ DELETE ${path} failed:`, errorMessage);
+    throw err;
+  }
+}
+
 // ✅ Generic POST request helper
 async function httpPost<T>(path: string, body: unknown): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
@@ -128,24 +205,39 @@ async function httpPost<T>(path: string, body: unknown): Promise<T> {
   }
 }
 
+// ✅ Get current user from localStorage
+function getCurrentUser() {
+  try {
+    const userStr = localStorage.getItem("user");
+    return userStr ? JSON.parse(userStr) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ✅ API object (exports all available functions)
 export const api = {
-  // 🔐 Login (mock for now)
+  // 🔐 Login - connect to real backend
   async login(email: string, password: string) {
-    return {
-      success: true,
-      user: { id: "1", email, name: "John Doe", role: "student" },
-      token: "mock-jwt-token",
-    };
+    try {
+      const result = await httpPost<{ success: boolean; user: any; token: string }>(
+        "/api/auth/login",
+        { email, password }
+      );
+      return result;
+    } catch (err: any) {
+      console.error("Login error:", err);
+      throw new Error(err.message || "Login failed. Please check your credentials.");
+    }
   },
 
-  // 🏫 Fetch all tenants (universities)
+  // 🏫 Fetch all tenants (universities) - connect to backend
   async getTenants() {
     try {
-      // Use backend if available
-      const tenants = await httpGet<{ tenants: any[] }>("/api/tenants");
-      return tenants.tenants;
-    } catch {
+      const data = await httpGet<{ tenants: any[] }>("/api/tenants");
+      return data.tenants;
+    } catch (err: any) {
+      console.error("Error fetching tenants:", err);
       // Fallback mock data
       return [
         { id: "stanford", name: "Stanford University" },
@@ -153,6 +245,16 @@ export const api = {
         { id: "oxford", name: "University of Oxford" },
         { id: "berkeley", name: "UC Berkeley" },
       ];
+    }
+  },
+
+  // 🏫 Get tenant details
+  async getTenant(tenantId: string) {
+    try {
+      return await httpGet<any>(`/api/tenant/${tenantId}`);
+    } catch (err: any) {
+      console.error("Error fetching tenant:", err);
+      throw err;
     }
   },
 
@@ -294,23 +396,160 @@ export const api = {
     }
   },
 
-  // 📢 Announcements (still mock)
-  async getAnnouncements() {
-    return [
-      {
-        id: "1",
-        title: "Mid-term Exams Schedule Released",
-        content: "Check your dashboard for exam dates and timings.",
-        date: "2 hours ago",
-        priority: "high",
-      },
-      {
-        id: "2",
-        title: "New Course Materials Available",
-        content: "Week 5 materials for all courses are now accessible.",
-        date: "5 hours ago",
-        priority: "medium",
-      },
-    ];
+  // 📢 Announcements - connect to backend
+  async getAnnouncements(tenantId?: string) {
+    try {
+      const query = tenantId ? `?tenantId=${tenantId}` : "";
+      return await httpGet<any[]>(`/api/announcements${query}`);
+    } catch (err: any) {
+      console.error("Error fetching announcements:", err);
+      // Fallback mock data
+      return [
+        {
+          id: "1",
+          title: "Mid-term Exams Schedule Released",
+          content: "Check your dashboard for exam dates and timings.",
+          date: "2 hours ago",
+          priority: "high",
+        },
+      ];
+    }
+  },
+
+  // 📊 Get platform statistics
+  async getStats() {
+    try {
+      return await httpGet<{
+        totalTenants: number;
+        totalCourses: number;
+        totalStudents: number;
+        activeLiveSessions: number;
+      }>("/api/stats");
+    } catch (err: any) {
+      console.error("Error fetching stats:", err);
+      return {
+        totalTenants: 4,
+        totalCourses: 48,
+        totalStudents: 8547,
+        activeLiveSessions: 24,
+      };
+    }
+  },
+
+  // 🎓 Course enrollment
+  async enrollInCourse(courseId: string, tenantId: string) {
+    const user = getCurrentUser();
+    if (!user) throw new Error("User must be logged in");
+    
+    try {
+      return await httpPost<{ message: string; course: any; progress: number }>(
+        "/api/courses/enroll",
+        { userId: user.id, courseId, tenantId }
+      );
+    } catch (err: any) {
+      console.error("Error enrolling in course:", err);
+      throw err;
+    }
+  },
+
+  // 📈 Get course progress
+  async getCourseProgress(courseId: string) {
+    const user = getCurrentUser();
+    if (!user) return { progress: 0, enrolled: false };
+    
+    try {
+      return await httpGet<{ progress: number; enrolled: boolean }>(
+        `/api/courses/${courseId}/progress?userId=${user.id}`
+      );
+    } catch (err: any) {
+      console.error("Error fetching course progress:", err);
+      return { progress: 0, enrolled: false };
+    }
+  },
+
+  // 📈 Update course progress
+  async updateCourseProgress(courseId: string, progress: number) {
+    const user = getCurrentUser();
+    if (!user) throw new Error("User must be logged in");
+    
+    try {
+      return await httpPost<{ message: string; progress: number }>(
+        `/api/courses/${courseId}/progress`,
+        { userId: user.id, progress }
+      );
+    } catch (err: any) {
+      console.error("Error updating course progress:", err);
+      throw err;
+    }
+  },
+
+  // 🎥 Join live session
+  async joinLiveSession(sessionId: string) {
+    const user = getCurrentUser();
+    if (!user) throw new Error("User must be logged in");
+    
+    try {
+      return await httpPost<{ message: string; session: any }>(
+        "/api/live/join",
+        { sessionId, userId: user.id }
+      );
+    } catch (err: any) {
+      console.error("Error joining live session:", err);
+      throw err;
+    }
+  },
+
+  // 🔔 Set reminder for live session
+  async setLiveSessionReminder(sessionId: string) {
+    const user = getCurrentUser();
+    if (!user) throw new Error("User must be logged in");
+    
+    try {
+      return await httpPost<{ message: string; sessionId: string }>(
+        "/api/live/reminder",
+        { sessionId, userId: user.id }
+      );
+    } catch (err: any) {
+      console.error("Error setting reminder:", err);
+      throw err;
+    }
+  },
+
+  // 🧑‍🏫 Admin: Create course
+  async createCourse(data: { title: string; instructor: string; tenantId: string; duration?: string; description?: string }) {
+    try {
+      return await httpPost<{ message: string; course: any }>(
+        "/api/admin/courses",
+        data
+      );
+    } catch (err: any) {
+      console.error("Error creating course:", err);
+      throw err;
+    }
+  },
+
+  // 🧑‍🏫 Admin: Update course
+  async updateCourse(courseId: string, data: { title?: string; instructor?: string; tenantId: string; duration?: string; description?: string }) {
+    try {
+      return await httpPut<{ message: string; course: any }>(
+        `/api/admin/courses/${courseId}`,
+        data
+      );
+    } catch (err: any) {
+      console.error("Error updating course:", err);
+      throw err;
+    }
+  },
+
+  // 🧑‍🏫 Admin: Delete course
+  async deleteCourse(courseId: string, tenantId: string) {
+    try {
+      return await httpDelete<{ message: string }>(
+        `/api/admin/courses/${courseId}?tenantId=${tenantId}`
+      );
+    } catch (err: any) {
+      console.error("Error deleting course:", err);
+      throw err;
+    }
   },
 };

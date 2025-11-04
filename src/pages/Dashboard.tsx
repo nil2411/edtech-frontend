@@ -7,32 +7,54 @@ import { BookOpen, Users, Video, TrendingUp } from "lucide-react";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useTenant } from "@/contexts/TenantContext";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const Dashboard = () => {
+  const { currentTenant } = useTenant();
   const [courses, setCourses] = useState<any[]>([]);
   const [liveClasses, setLiveClasses] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [stats, setStats] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
-      const [coursesData, classesData, announcementsData] = await Promise.all([
-        api.getCourses(),
-        api.getLiveClasses(),
-        api.getAnnouncements(),
-      ]);
-      setCourses(coursesData.slice(0, 3));
-      setLiveClasses(classesData.slice(0, 2));
-      setAnnouncements(announcementsData);
+      if (!currentTenant) return;
+      
+      setIsLoading(true);
+      try {
+        const [coursesData, classesData, announcementsData, statsData] = await Promise.all([
+          api.getCourses(currentTenant.id),
+          api.getLiveClasses(),
+          api.getAnnouncements(currentTenant.id),
+          api.getStats(),
+        ]);
+        
+        setCourses(coursesData.slice(0, 3));
+        setLiveClasses(classesData.slice(0, 2));
+        setAnnouncements(announcementsData);
+        
+        // Calculate completion rate from enrolled courses
+        const enrolledCourses = coursesData.filter(c => c.progress > 0);
+        const avgProgress = enrolledCourses.length > 0
+          ? Math.round(enrolledCourses.reduce((sum, c) => sum + c.progress, 0) / enrolledCourses.length)
+          : 0;
+        
+        setStats([
+          { label: "Active Courses", value: String(coursesData.length), icon: BookOpen, color: "text-primary" },
+          { label: "Total Students", value: statsData.totalStudents.toLocaleString(), icon: Users, color: "text-accent" },
+          { label: "Live Classes", value: String(statsData.activeLiveSessions), icon: Video, color: "text-success" },
+          { label: "Completion Rate", value: `${avgProgress}%`, icon: TrendingUp, color: "text-warning" },
+        ]);
+      } catch (error) {
+        console.error("Error loading dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
     loadData();
-  }, []);
-
-  const stats = [
-    { label: "Active Courses", value: "12", icon: BookOpen, color: "text-primary" },
-    { label: "Total Students", value: "8.5K", icon: Users, color: "text-accent" },
-    { label: "Live Classes", value: "24", icon: Video, color: "text-success" },
-    { label: "Completion Rate", value: "87%", icon: TrendingUp, color: "text-warning" },
-  ];
+  }, [currentTenant]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,19 +66,29 @@ const Dashboard = () => {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-          {stats.map((stat) => (
-            <Card key={stat.label} className="shadow-soft">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                    <p className="text-3xl font-bold">{stat.value}</p>
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} className="shadow-soft">
+                <CardContent className="p-6">
+                  <Skeleton className="h-16 w-full" />
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            stats.map((stat) => (
+              <Card key={stat.label} className="shadow-soft">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
+                      <p className="text-3xl font-bold">{stat.value}</p>
+                    </div>
+                    <stat.icon className={`h-10 w-10 ${stat.color}`} />
                   </div>
-                  <stat.icon className={`h-10 w-10 ${stat.color}`} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3 mb-8">
@@ -68,7 +100,14 @@ const Dashboard = () => {
               </Link>
             </div>
             <div className="space-y-4">
-              {courses.map((course) => (
+              {courses.length === 0 && !isLoading ? (
+                <Card>
+                  <CardContent className="p-6 text-center text-muted-foreground">
+                    No courses available. Please contact your administrator.
+                  </CardContent>
+                </Card>
+              ) : (
+                courses.map((course) => (
                 <Card key={course.id} className="shadow-soft hover:shadow-medium transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex gap-4">
@@ -89,7 +128,8 @@ const Dashboard = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                ))
+              )}
             </div>
           </div>
 
