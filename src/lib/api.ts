@@ -20,7 +20,7 @@ const getApiBaseUrl = () => {
   }
   
   // Development: Use direct backend URL
-  return "http://13.201.4.174:5000";
+  return "http://3.109.212.23:5000";
 };
 
 const API_BASE_URL = getApiBaseUrl();

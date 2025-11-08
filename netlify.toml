@@ -11,7 +11,7 @@
 # ✅ Proxy API requests to backend (fixes mixed content HTTP -> HTTPS issue)
 [[redirects]]
   from = "/api-proxy/*"
-  to = "http://13.201.4.174:5000/:splat"
+  to = "http://3.109.212.23:5000/:splat"
   status = 200
   force = true
 
